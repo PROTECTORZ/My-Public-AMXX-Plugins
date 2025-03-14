@@ -1,0 +1,13 @@
+[en] -- OciXCrom
+AKM_CHAT_PREFIX = &x04[AK47 Models]&x01
+AKM_CHAT_SELECTED = You have selected the Ak47 &x04%s
+AKM_MENU_TITLE = \y< \rChoose your Ak47 model \y>
+AKM_MENU_TITLE_PAGE = ^n\r-- \yPage:\r
+AKM_MENU_SELECTED = \y~ \rSELECTED \y~
+AKM_MENU_OWNER_ONLY = \y~ \rOWNER \y~
+AKM_MENU_VIP_ONLY = \y~ \rVIP \y~
+AKM_MENU_LEVEL = \r[LVL %i]
+AKM_MENU_RANK = \r[RANK: %s]
+AKM_MENU_XP = \r[XP: %i]
+
+

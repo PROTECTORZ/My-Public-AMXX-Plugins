@@ -1,0 +1,13 @@
+[en] -- OciXCrom
+DGM_CHAT_PREFIX = &x04[Deagle Models]&x01
+DGM_CHAT_SELECTED = You have selected the Deagle &x04%s
+DGM_MENU_TITLE = \y< \rChoose your Deagle model \y>
+DGM_MENU_TITLE_PAGE = ^n\r-- \yPage:\r
+DGM_MENU_SELECTED = \y~ \rSELECTED \y~
+DGM_MENU_OWNER_ONLY =  \y~ \rOWNER \y~
+DGM_MENU_VIP_ONLY = \y~ \rVIP \y~
+DGM_MENU_LEVEL = \r[LVL %i]
+DGM_MENU_RANK = \r[RANK: %s]
+DGM_MENU_XP = \r[XP: %i]
+
+

@@ -1,0 +1,12 @@
+[en] -- OciXCrom
+AM_CHAT_PREFIX = &x04[AWP Models]&x01
+AM_CHAT_SELECTED = You have selected the sniper &x04%s
+AM_MENU_TITLE = \y< \rChoose your AWP model \y>
+AM_MENU_TITLE_PAGE = ^n\r-- \yPage:\r
+AM_MENU_SELECTED = \y~ \rSELECTED \y~
+AM_MENU_OWNER_ONLY = \y~ \rOWNER \y~
+AM_MENU_VIP_ONLY = \y~ \rVIP \y~
+AM_MENU_LEVEL = \r[LVL %i]
+AM_MENU_RANK = \r[RANK: %s]
+AM_MENU_XP = \r[XP: %i]
+
