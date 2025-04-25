@@ -4,30 +4,83 @@
 #include <customshop>
 #include <fun>
 #include <cstrike>
+#include <fakemeta>
 
 #define PLUGIN "Race System"
-#define VERSION "1.2"
-#define AUTHOR "IDK Who is the author"
+#define VERSION "1.3"
+#define AUTHOR "IDK"
 
-new g_Challenger[33];
-new g_RacingWith[33];
-new g_Terrorist = 0;
+// Forward declarations
+forward race_countdown();
+forward event_death();
+forward event_round_end();
+forward event_round_restart();
+
+// Player arrays
+new g_Challenger[33]; 
+new g_RacingWith[33]; 
+new g_Terrorist = 0;  
 new bool:g_RaceStarted = false;
 new g_CountdownTimer = 0;
-
-forward race_countdown()
-forward event_death()
-forward event_round_end()
-forward client_disconnected(id)
 
 public plugin_init()
 {
     register_plugin(PLUGIN, VERSION, AUTHOR);
+    
     register_clcmd("say /race", "cmd_race");
-    register_event("DeathMsg", "event_death", "a");
-    register_event("HLTV", "event_round_start", "a", "1=0", "2=0");
-    register_event("SendAudio", "event_round_end", "a", "2=%!MRAD_terwin", "2=%!MRAD_ctwin", "2=%!MRAD_rounddraw");
+    
+    register_event("DeathMsg", "event_death", "a"); 
+    register_event("HLTV", "event_round_start", "a", "1=0", "2=0"); 
+    register_event("SendAudio", "event_round_end", "a", "2=%!MRAD_terwin", "2=%!MRAD_ctwin", "2=%!MRAD_rounddraw"); 
     register_logevent("event_round_restart", 2, "1=Round_Start");
+    
+    // Register think function to check for falls
+    register_forward(FM_PlayerPreThink, "fw_PlayerPreThink");
+}
+
+public fw_PlayerPreThink(id)
+{
+    // Only process players who are racing
+    if (!is_user_alive(id) || g_RacingWith[id] == 0)
+        return FMRES_IGNORED;
+    
+    static Float:velocity[3];
+    pev(id, pev_velocity, velocity);
+    
+    // If player is falling fast, consider them fallen and eliminate
+    if (velocity[2] < -500.0)
+    {
+        // Player has fallen
+        player_fallen(id);
+    }
+    
+    return FMRES_IGNORED;
+}
+
+public player_fallen(id)
+{
+    if (!is_user_alive(id) || g_RacingWith[id] == 0)
+        return;
+    
+    // Kill the player
+    user_kill(id);
+    
+    // Process as if player died in race
+    new opponent = g_RacingWith[id];
+    if (is_user_connected(opponent))
+    {
+        cshop_give_points(id, -20);
+        cshop_give_points(opponent, 20);
+
+        new fallen_name[32], opponent_name[32];
+        get_user_name(id, fallen_name, 31);
+        get_user_name(opponent, opponent_name, 31);
+        CC_SendMessage(0, "&x04[RACE]: &x03%s &x01fell and died during the race! Lost 20 points.", fallen_name);
+        CC_SendMessage(0, "&x04[RACE]: &x03%s &x04wins &x01the race! &x04Gained 20 points&x01.", opponent_name);
+    }
+
+    g_RacingWith[id] = 0;
+    g_RacingWith[opponent] = 0;
 }
 
 public event_round_start()
@@ -35,6 +88,7 @@ public event_round_start()
     arrayset(g_Challenger, 0, 33);
     arrayset(g_RacingWith, 0, 33);
     g_Terrorist = 0;
+    
     respawn_racers();
     new players[32], num;
     get_players(players, num, "he", "TERRORIST");
@@ -42,6 +96,11 @@ public event_round_start()
     {
         g_Terrorist = players[0];
     }
+}
+
+public event_round_restart()
+{
+    g_RaceStarted = false;
 }
 
 public respawn_racers()
@@ -97,7 +156,7 @@ public cmd_race(id)
     
     if (added == 0)
     {
-        CC_SendMessage(id, "&x04[CSBG]: &x04No other CT players to challenge&x01.");
+        CC_SendMessage(id, "&x04[RACE]: &x04No other CT players to challenge&x01.");
         menu_destroy(menu);
         return PLUGIN_HANDLED;
     }
@@ -124,14 +183,14 @@ public menu_handler(id, menu, item)
 
     if (!is_user_connected(target))
     {
-        CC_SendMessage(id, "&x04[CSBG]: &x04Player is no longer connected&x01.");
+        CC_SendMessage(id, "&x04[RACE]: &x04Player is no longer connected&x01.");
         menu_destroy(menu);
         return PLUGIN_HANDLED;
     }
 
     if (g_Challenger[target] != 0)
     {
-        CC_SendMessage(id, "&x04[CSBG]: &x04That player has already been challenged&x01.");
+        CC_SendMessage(id, "&x04[RACE]: &x04That player has already been challenged&x01.");
         menu_destroy(menu);
         return PLUGIN_HANDLED;
     }
@@ -168,17 +227,17 @@ public challenge_menu_handler(id, menu, item)
 
     if (!is_user_connected(challenger))
     {
-        CC_SendMessage(id, "&x04[CSBG]: &x04The challenger is no longer connected&x01.");
+        CC_SendMessage(id, "&x04[RACE]: &x04The challenger is no longer connected&x01.");
         g_Challenger[id] = 0;
         menu_destroy(menu);
         return PLUGIN_HANDLED;
     }
 
-    if (item == 0)
+    if (item == 0) 
     {
         if (g_RacingWith[id] != 0 || g_RacingWith[challenger] != 0)
         {
-            CC_SendMessage(id, "&x04[CSBG]: &x04You or the challenger is already in a race&x01.");
+            CC_SendMessage(id, "&x04[RACE]: &x04You or the challenger is already in a race&x01.");
             g_Challenger[id] = 0;
             menu_destroy(menu);
             return PLUGIN_HANDLED;
@@ -187,24 +246,28 @@ public challenge_menu_handler(id, menu, item)
         g_RacingWith[id] = challenger;
         g_RacingWith[challenger] = id;
         g_Challenger[id] = 0;
+        
+          // Set g_RaceStarted = true when race actually starts
+        g_RaceStarted = true;
 
         new name1[32], name2[32];
         get_user_name(id, name1, 31);
         get_user_name(challenger, name2, 31);
         CC_SendMessage(0, "&x04[RACE]: &x03%s &x04accepted &x01the race challenge from &x03%s&x01. Prepare for race!", name1, name2);
     
+        // Respawn players for the race
         cs_user_spawn(id);
         cs_user_spawn(challenger);
-    
-        set_user_godmode(id, 1);
-        set_user_godmode(challenger, 1);
-        set_user_maxspeed(id, 0.1);
-        set_user_maxspeed(challenger, 0.1);
         
+        // Set normal speed for racers (removing any previous speed modifications)
+
+        set_user_maxspeed(id, 250.0);  // Def CS Speed
+        set_user_maxspeed(challenger, 250.0);
+
         g_CountdownTimer = 3;
-        set_task(1.0, "race_countdown", 0, "", 0, "a", 4);
+        set_task(1.0, "race_countdown", 0, "", 0, "b", 4);
     }
-    else if (item == 1)
+    else if (item == 1) 
     {
         new name1[32], name2[32];
         get_user_name(id, name1, 31);
@@ -229,17 +292,6 @@ public race_countdown()
     else
     {
         CC_SendMessage(0, "&x04[RACE]: &x04GO! &x01The race has begun!");
-        
-        for (new id = 1; id <= 32; id++)
-        {
-            if (g_RacingWith[id] != 0 && is_user_connected(id))
-            {
-                set_user_godmode(id, 0);
-                set_user_maxspeed(id, 250.0);
-            }
-        }
-        
-        g_RaceStarted = true;
     }
 }
 
@@ -264,13 +316,12 @@ public event_death()
                 new killer_name[32], opponent_name[32];
                 get_user_name(killer, killer_name, 31);
                 get_user_name(opponent, opponent_name, 31);
-                CC_SendMessage(0, "&x04[CSBG]: &x03%s &x04wins &x01the race vs &x03%s&x01. &x04Gained 20 points&x01.", killer_name, opponent_name);
-                CC_SendMessage(0, "&x04[CSBG]: &x03%s &x01loses the race vs &x03%s&x01. Lost 20 points.", opponent_name, killer_name);
+                CC_SendMessage(0, "&x04[RACE]: &x03%s &x04wins &x01the race vs &x03%s&x01. &x04Gained 20 points&x01.", killer_name, opponent_name);
+                CC_SendMessage(0, "&x04[RACE]: &x03%s &x01loses the race vs &x03%s&x01. Lost 20 points.", opponent_name, killer_name);
             }
 
             g_RacingWith[killer] = 0;
             g_RacingWith[opponent] = 0;
-            g_RaceStarted = false;
         }
     }
     else if (cs_get_user_team(victim) == CS_TEAM_CT && g_RacingWith[victim] != 0)
@@ -284,13 +335,12 @@ public event_death()
             new victim_name[32], opponent_name[32];
             get_user_name(victim, victim_name, 31);
             get_user_name(opponent, opponent_name, 31);
-            CC_SendMessage(0, "&x04[CSBG]: &x03%s &x01died during the race and loses! Lost 20 points.", victim_name);
-            CC_SendMessage(0, "&x04[CSBG]: &x03%s &x04wins &x01the race because opponent died! &x04Gained 20 points&x01.", opponent_name);
+            CC_SendMessage(0, "&x04[RACE]: &x03%s &x01died during the race and loses! Lost 20 points.", victim_name);
+            CC_SendMessage(0, "&x04[RACE]: &x03%s &x04wins &x01the race because opponent died! &x04Gained 20 points&x01.", opponent_name);
         }
 
         g_RacingWith[victim] = 0;
         g_RacingWith[opponent] = 0;
-        g_RaceStarted = false;
     }
 }
 
@@ -301,7 +351,7 @@ public event_round_end()
         if (g_RacingWith[id] != 0)
         {
             new opponent = g_RacingWith[id];
-            if (is_user_connected(opponent) && id < opponent)
+            if (is_user_connected(opponent) && id < opponent) 
             {
                 if (g_Terrorist == 0 || is_user_alive(g_Terrorist) || !is_user_connected(g_Terrorist))
                 {
@@ -311,12 +361,13 @@ public event_round_end()
                     new name1[32], name2[32];
                     get_user_name(id, name1, 31);
                     get_user_name(opponent, name2, 31);
-                    CC_SendMessage(0, "&x04[CSBG]: &x03%s &x01and &x03%s &x01both lose the race. Lost 20 points each.", name1, name2);
+                    CC_SendMessage(0, "&x04[RACE]: &x03%s &x01and &x03%s &x01both lose the race. Lost 20 points each.", name1, name2);
                 }
             }
             g_RacingWith[id] = 0;
         }
     }
+    
     g_RaceStarted = false;
 }
 
@@ -333,8 +384,8 @@ public client_disconnected(id)
             
             cshop_give_points(opponent, 20);
             
-            CC_SendMessage(0, "&x04[CSBG]: &x03%s &x01disconnected during the race against &x03%s&x01!", id_name, opponent_name);
-            CC_SendMessage(0, "&x04[CSBG]: &x03%s &x04wins &x01the race by default! &x04Gained 20 points&x01.", opponent_name);
+            CC_SendMessage(0, "&x04[RACE]: &x03%s &x01disconnected during the race against &x03%s&x01!", id_name, opponent_name);
+            CC_SendMessage(0, "&x04[RACE]: &x03%s &x04wins &x01the race by default! &x04Gained 20 points&x01.", opponent_name);
             
             g_RacingWith[opponent] = 0;
         }
@@ -350,8 +401,8 @@ public client_disconnected(id)
             get_user_name(id, id_name, 31);
             get_user_name(challenger, challenger_name, 31);
             
-            CC_SendMessage(0, "&x04[CSBG]: &x03%s &x01disconnected before responding to &x03%s's &x01race challenge!", id_name, challenger_name);
-            CC_SendMessage(challenger, "&x04[CSBG]: &x04Your challenge has been canceled &x01because the player disconnected.");
+            CC_SendMessage(0, "&x04[RACE]: &x03%s &x01disconnected before responding to &x03%s's &x01race challenge!", id_name, challenger_name);
+            CC_SendMessage(challenger, "&x04[RACE]: &x04Your challenge has been canceled &x01because the player disconnected.");
         }
         g_Challenger[id] = 0;
     }
@@ -367,8 +418,8 @@ public client_disconnected(id)
             g_Challenger[i] = 0;
             if (is_user_connected(i))
             {
-                CC_SendMessage(0, "&x04[CSBG]: &x03%s &x01disconnected after challenging &x03%s &x01to a race!", id_name, i_name);
-                CC_SendMessage(i, "&x04[CSBG]: &x04The challenge has been canceled &x01because the challenger disconnected.");
+                CC_SendMessage(0, "&x04[RACE]: &x03%s &x01disconnected after challenging &x03%s &x01to a race!", id_name, i_name);
+                CC_SendMessage(i, "&x04[RACE]: &x04The challenge has been canceled &x01because the challenger disconnected.");
             }
         }
     }
