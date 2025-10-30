@@ -1,61 +1,3 @@
-/*
----------------------------------------------------------
-   #  #  #    #===    ###    ##    #
-  #    ##     #===   #      #  #    #
-   #   #      #===    ###    ##    #
----------------------------------------------------------
-vzbb_mod.inc
-Library by <VeCo>
-
-<VeCo>'s Zombie BaseBuilder Mod 4.0
-
-If you modify the code, please DO NOT change the author!
----------------------------------------------------------
-Contacts:
-e-mail: veco.kn@gmail.com
-skype: veco_kn
----------------------------------------------------------
-Changes log:
- -> v 1.0 = First release!
- -> v 1.1 = Fixed double user_infect_pre. The second is
-	    changed to user_infect_post.
- -> v 3.0 = Defines changed to enums.
-	    Added itemteam parameter in register_shop_item
-	    function and TEAM_* enum.
-	    Added set_user_zombie_class native.
-	    Added user_uninfect native.
-	    Added grab/release block forwards.
- -> v 3.4 = Added is_user_frozen_cool native.
-	    Added user_freeze_cool_* forwards.
-	    Added user_freeze_cool and user_unfreeze_cool
-	    natives.
- -> v 3.5 = Added get_block_fun_type and set_block_fun_type
-	    natives and BLOCKS_* enum.
-	    Added get_deal_discount and is_deal_offer natives.
- -> v 3.8 = Added set_user_was_zombie native.
-	    Added access parameters in register_zombie_class
-	    and register_shop_item natives.
-	    Fixed a typo.
-	    Added FORWARD_CONTINUE define for the forward
-	    block ability.
-	    Added set_user_can_build native.
-	    Added hide_barrierent and reset_barrierent natives.
-	    Added update_user_hud_data forward and set_hud_cache_*
-	    natives for it.
-	    Added force_user_hud_data and force_weapon_menu natives.
- -> v 3.9 = Added user_uninfect_pre and user_uninfect_post forwards.
-	    Added battle_phase_begin_admin forward.
-	    Added fun_block_touch_pre and fun_block_touch_post forwards.
- -> v 4.0 = Added ability to block shop_item_selected forward. (and changed
-	    the way Item Buy System works)
-	    Added maxbuys parameter in register_shop_item and NO_MAX_BUYS
-	    define for it.
-	    Added restore_user_rendering native.
----------------------------------------------------------
-Don't forget to visit http://www.amxmodxbg.org :)
----------------------------------------------------------
-*/
-
 #if defined _vzbb_mod_included
 	#endinput
 #endif
@@ -71,19 +13,13 @@ Don't forget to visit http://www.amxmodxbg.org :)
 	#pragma library vzbb_mod
 #endif
 
-/*=======================================================================
-                           -= Define-и =- 
-========================================================================*/
+/* return ... (blocks the forward) */
+#define FORWARD_CONTINUE 777
 
-#define FORWARD_CONTINUE 777 // return ... (блокира forward)
+/* Unlimited number of item purchases */
+#define NO_MAX_BUYS 0
 
-#define NO_MAX_BUYS 0 // неограничен брой пъти купуване на итем
-
-/*=======================================================================
-                           -= Enum-и =- 
-========================================================================*/
-
-// Кога може да се ползва итема?
+/* When can the item be used? */
 enum
 {
 	USE_BATTLE = 0,
@@ -91,7 +27,7 @@ enum
 	USE_BOTH
 }
 
-// Кой може да ползва итема?
+/* Who can use the item? */
 enum
 {
 	TEAM_ZOMBIES = 1,
@@ -99,21 +35,21 @@ enum
 	TEAM_BOTH
 }
 
-// Как се движи блока?
+/* How does the block move? */
 enum
 {
 	BLOCK_PULL = 1,
 	BLOCK_PUSH
 }
 
-// Какъв режим се игра този рунд?
+/* What mode is being played this round? */
 enum
 {
 	MODE_NORMAL = 0,
 	MODE_INFECTION
 }
 
-// Каква граната е хвърлена?
+/* What type of grenade was thrown? */
 enum
 {
 	NADE_HE = 1,
@@ -121,639 +57,638 @@ enum
 	NADE_FLASH
 }
 
-// Какъв тип забавен блок е това?
+/* What type of fun block is this? */
 enum
 {
 	BLOCKS_NORMAL = 0,
-	BLOCKS_YELLOW,
-	BLOCKS_BLACK,
-	BLOCKS_BLUE,
-	BLOCKS_RED
+	BLOCKS_YELLOW,	// fast-moving block
+	BLOCKS_BLACK,	// immovable block
+	BLOCKS_BLUE,	// slowing block
+	BLOCKS_RED		// burning block
 }
 
-/*=======================================================================
-                           -= Нативи =- 
-========================================================================*/
-
-/* :: Регистрира нов зомби клас
-
-#classname -  Името на зомби класа (пример: "Test Zombie")
-#classinfo - Кратка информация относно зомби класа (пример: "g+ s-")
-#classmdl - Модел на зомби класа (пример: "zombie" , трябва да се намира в models/player/име/име.mdl)
-#classclawmdl - Модел на ръцете на зомби класа (пример: "claw" , трябва да се намира в models/име.mdl)
-#health - Кръв на зомби класа (пример: 2000)
-#gravity - Гравитация на зомби класа (пример: 0.5) (1.0 = 800 гравитаця , 0.5 = 400 гравитация ...)
-#speed - Скорост на зомби класа (пример: 400.0) (0.0 = нормална скорост)
-#access - Админ достъп нужен за избиране на класа (ADMIN_ALL - за всички)
-
-::::: Фунцкията връща иднекса на класа. (int)
+/**
+* Registers a new zombie class
+*
+* @param classname		The name of the zombie class (e.g. "Test Zombie")
+* @param classinfo		Short info about the zombie class (e.g. "g+ s-")
+* @param classmdl		Zombie model name (e.g. "zombie" вЂ“ must exist in models/player/name/name.mdl)
+* @param classclawmdl	Zombie hand/claw model (e.g. "claw" вЂ“ must exist in models/name.mdl)
+* @param health			Zombie class health (e.g. 2000)
+* @param gravity		Zombie gravity (e.g. 0.5) (1.0 = 800 gravity, 0.5 = 400 gravity, etc.)
+* @param speed			Zombie speed (e.g. 400.0) (0.0 = normal speed)
+* @param access			Admin access required to choose the class (ADMIN_ALL вЂ“ for everyone)
+* @return 				Returns the index of the class. (int)
 */
+native register_zombie_class(const classname[], const classinfo[], const classmdl[], const classclawmdl[], health, Float:gravity, Float:speed, access)
 
-native register_zombie_class(const classname[],const classinfo[], const classmdl[],const classclawmdl[], health,Float:gravity,Float:speed, access)
-
-/* :: Регистрира нов итем в shop менюто
-
-#itemname - Името на итема (пример: "Test Item")
-#itemcost - Цена на итема (пример: 15)
-#itemuse - Кога да може да се използва итема? (USE_BATTLE - в бойната фаза , USE_BUILD - в строителната фаза , USE_BOTH - и в двете фази)
-#itemteam - Кой може да купува итема? (TEAM_ZOMBIES - зомбитата , TEAM_HUMANS - хората , TEAM_BOTH - всички)
-#access - Админ достъп нужен за купуване на итема (ADMIN_ALL - за всички)
-#maxbuys - Колко пъти да може да се купи итемът на рунд? (NO_MAX_BUYS - неограничен брой пъти)
-
-::::: Фунцкията връща иднекса на итема. (int)
+/**
+* Registers a new shop item
+*
+* @param itemname		Item name (e.g. "Test Item")
+* @param itemcost		Item price (e.g. 15)
+* @param itemuse		When can the item be used? (USE_BATTLE вЂ“ during battle phase, USE_BUILD вЂ“ during build phase, USE_BOTH вЂ“ in both)
+* @param itemteam		Who can buy the item? (TEAM_ZOMBIES вЂ“ zombies, TEAM_HUMANS вЂ“ humans, TEAM_BOTH вЂ“ everyone)
+* @param access			Admin access required to buy the item (ADMIN_ALL вЂ“ for everyone)
+* @param maxbuys		How many times per round can the item be bought? (NO_MAX_BUYS вЂ“ unlimited)
+* @return 				Returns the index of the item. (int)
 */
-
 native register_shop_item(const itemname[], itemcost, itemuse, itemteam, access, maxbuys)
 
-/* :: Връща иднекса на класа на играча (-1 ако е Classic Zombie)
-
-#id - индекс на играча
-
-::::: Фунцкията връща иднекса на класа на играча. (int)
-*/
-
+/**
+ * Returns the index of the player's zombie class. (int)
+ *
+ * @param id		Player index
+ * @return			Returns the zombie class index (-1 if Classic Zombie)
+ */
 native get_user_zombie_class(id)
 
-/* :: Задава иднекса на класа на играча
+/**
+ * Sets the player's zombie class index
+ *
+ * @param id		Player index
+ * @param classid	Zombie class index (-1 = Classic Zombie)
+ *
+ * @noreturn
+ */
+native set_user_zombie_class(id, classid)
 
-#id - индекс на играча
-#classid - индекс на зомби класа (-1 - Classic Zombie)
-*/
-
-native set_user_zombie_class(id,classid)
-
-/* :: Връща съответна стойност ако играчът е зомби
-
-#id - индекс на играча
-
-::::: Фунцкията връща true ако е зомби и false - ако не е. (bool)
-*/
-
+/**
+ * Returns true if the player is a zombie
+ *
+ * @param id		Player index
+ * @return			true if zombie, false otherwise (bool)
+ */
 native is_user_zombie(id)
 
-/* :: Връща съответна стойност ако играчът е човек
-
-#id - индекс на играча
-
-::::: Фунцкията връща true ако е човек и false - ако не е. (bool)
-*/
-
+/**
+ * Returns true if the player is human
+ *
+ * @param id		Player index
+ * @return			true if human, false otherwise (bool)
+ */
 native is_user_human(id)
 
-/* :: Връща стойността на кредитите на играч
-
-#id - индекс на играча
-
-::::: Фунцкията връща кредитите на играч. (int)
-*/
-
+/**
+ * Returns the amount of credits a player has
+ *
+ * @param id		Player index
+ * @return			Player credits. (int)
+ */
 native get_user_credits(id)
 
-/* :: Задава стойността на кредитите на играч
+/**
+ * Sets the amount of credits a player has
+ *
+ * @param id		Player index
+ * @param credits	Value to set (use with get_user_credits if adding/removing credits)
+ *
+ * @noreturn
+ */
+native set_user_credits(id, credits)
 
-#id - индекс на играча
-#credits - стойността на кредитите, които искаме да зададем (използвайте с get_user_credits ако искате да прибавите/премахнете кредити на играч)
-*/
-
-native set_user_credits(id,credits)
-
-/* :: Връща стойността на разстоянието на играч между последния блок, който е движел
-
-#id - индекс на играча
-
-::::: Фунцкията връща разстоянието на играч между последния блок, който е движел. (float)
-*/
-
-native get_user_block_distance(id)
-
-/* :: Задава стойността на разстоянието на играч между последния блок, който е движел
-
-#id - индекс на играча
-#dist - стойността на разстоянието на играч между последния блок, който е движел, което искаме да зададем
-*/
-
-native set_user_block_distance(id,Float:dist)
-
-/* :: Връща общия брой зомби класове, заредени в момента
-
-::::: Фунцкията връща общия брой зомби класове, заредени в момента. (int)
-*/
-
+/**
+ * Returns total number of loaded zombie classes
+ *
+ * @return			Total zombie classes. (int)
+ */
 native get_total_zombie_classes()
 
-/* :: Връща общия брой shop итеми, заредени в момента
-
-::::: Фунцкията връща общия брой shop итеми, заредени в момента. (int)
-*/
-
+/**
+ * Returns total number of loaded shop items
+ *
+ * @return			Total shop items. (int)
+ */
 native get_total_shop_items()
 
-/* :: Връща съответна стойност ако играчът може да строи в бойната фаза
-
-#id - индекс на играча
-
-::::: Фунцкията връща true ако играчът може да строи в бойната фаза и false - ако не може. (bool)
-*/
-
+/**
+ * Returns true if the player can build during battle phase
+ *
+ * @param id		Player index
+ * @return			true if can build during battle phase, false otherwise. (bool)
+ */
 native get_user_can_build_battle(id)
 
-/* :: Задава стойността на играч, за да може да мести блокове и в бойната фаза (действа до стартирането на следващата бойна фаза)
+/**
+ * Sets if the player can move blocks during battle phase
+ * (effective until next battle phase starts)
+ *
+ * @param id		Player index
+ * @param set		true = can build, false = cannot
+ *
+ * @noreturn
+ */
+native set_user_can_build_battle(id, set)
 
-#id - индекс на играча
-#set - true : за да може да строи и false : за да не може
-*/
-
-native set_user_can_build_battle(id,set)
-
-/* :: Връща индекс на ентитито на блока, който играчът мести в момента
-
-#id - индекс на играча
-
-::::: Фунцкията връща индекс на ентитито на блока, който играчът мести в момента. (int)
-*/
-
+/**
+ * Returns the entity index of the block the player is currently moving
+ *
+ * @param id		Player index
+ * @return			Entity index of the block. (int)
+ */
 native get_user_block_ent(id)
 
-/* :: Задава индекс на ентитито на блока, който играчът мести в момента
+/**
+ * Sets the entity index of the block the player is currently moving
+ *
+ * @param id		Player index
+ * @param ent		Entity index
+ *
+ * @noreturn
+ */
+native set_user_block_ent(id, ent)
 
-#id - индекс на играча
-#ent - индекс на ентитито
-*/
-
-native set_user_block_ent(id,ent)
-
-/* :: Връща сътветна стойност ако е freezetime в момента
-
-::::: Фунцкията връща true ако е и false - ако не е. (bool)
-*/
-
+/**
+ * Returns true if it is currently freezetime
+ *
+ * @return			true if yes, false if not. (bool)
+ */
 native is_freezetime()
 
-/* :: Връща оставащото време на строителната фаза
-
-::::: Фунцкията връща оставащото време на строителната фаза в секунди. (int)
-*/
-
+/**
+ * Returns the remaining build phase time in seconds
+ *
+ * @return			Remaining time (seconds). (int)
+ */
 native get_build_phase_remaining_time()
 
-/* :: Връща сътветна стойност ако играчите могат да строят (ако в момента е строителната фаза)
-
-::::: Фунцкията връща true ако могат и false - ако не могат. (bool)
-*/
-
+/**
+ * Returns true if players can currently build (if it's build phase)
+ *
+ * @return			true if they can, false otherwise. (bool)
+ */
 native user_can_build()
 
-/* :: Задава дали играчите могат да строят (дали в момента е строителна фаза)
-
-#build - true - ако могат, false - ако не могат
-*/
-
+/**
+ * Sets whether players can build (defines if it's build phase)
+ *
+ * @param build		true = can build, false = cannot
+ *
+ * @noreturn
+ */
 native set_user_can_build(build)
 
-/* :: Връща сътветна стойност на режима на игра в момента
-
-::::: Фунцкията връща сътветна стойност на режима на игра в момента (MODE_NORMAL - нормален режим (с убийства) , MODE_INFECTION - режим с инфекции) . (int)
-*/
-
+/**
+ * Returns current round mode
+ *
+ * @return			MODE_NORMAL вЂ“ normal mode, MODE_INFECTION вЂ“ infection mode. (int)
+ */
 native get_roundmode()
 
-/* :: Връща съответна стойност ако играчът е бил зомби при раждането си
-
-#id - индекс на играча
-
-::::: Фунцкията връща true ако е бил зомби и false - ако не е бил. (bool)
-*/
-
+/**
+ * Returns true if the player was a zombie at spawn
+ *
+ * @param id		Player index
+ * @return			true if was zombie, false otherwise. (bool)
+ */
 native was_user_zombie(id)
 
-/* :: Задава стойност дали играчът е бил зомби при раждането си (ако е бил накрая на рунда ще бъде човек, използва се при инфекции)
+/**
+ * Sets whether the player was a zombie at spawn (used for infection mode)
+ *
+ * @param id		Player index
+ * @param true		1 = was zombie, 0 = not
+ *
+ * @noreturn
+ */
+native set_user_was_zombie(id, true)
 
-#id - индекс на играча
-#true - стойността - 1 ако е бил, 0 - ако не е
-*/
-
-native set_user_was_zombie(id,true)
-
-/* :: Връща съответна стойност ако играчът е баннат (местенето на блоковете)
-
-#id - индекс на играча
-
-::::: Фунцкията връща true ако е и false - ако не е. (bool)
-*/
-
+/**
+ * Returns true if the player is banned (from block movement)
+ *
+ * @param id		Player index
+ * @return			true if banned, false otherwise. (bool)
+ */
 native is_user_banned(id)
 
-/* :: Връща стойността на оставащата кръв за взимане при горене
-
-#id - индекс на играча
-
-::::: Фунцкията връща стойността на оставащата кръв за взимане при горене. (int)
-*/
-
+/**
+ * Returns remaining burn damage duration
+ *
+ * @param id		Player index
+ * @return			Remaining burn damage amount. (int)
+ */
 native get_user_fire_duration(id)
 
-/* :: Задава стойността на oставащата кръв за взимане при горене
+/**
+ * Sets remaining burn damage duration
+ *
+ * @param id		Player index
+ * @param duration	Value to set (1 = stop burning)
+ */
+native set_user_fire_duration(id, duration)
 
-#id - индекс на играча
-#dist - стойността на oставащата кръв за взимане при горене, която искаме да зададем (1 - за да спрем горенето на играч)
-*/
-
-native set_user_fire_duration(id,duration)
-
-/* :: Връща съответна стойност ако играчът е заледен
-
-#id - индекс на играча
-
-::::: Фунцкията връща true ако е и false - ако не е. (bool)
-*/
-
+/**
+ * Returns true if the player is frozen
+ *
+ * @param id		Player index
+ * @return			true if frozen, false otherwise. (bool)
+ */
 native is_user_frozen(id)
 
-/* :: Връща съответна стойност ако играчът е заледен (започва да се топи)
-
-#id - индекс на играча
-
-::::: Фунцкията връща true ако е и false - ако не е. (bool)
-*/
-
+/**
+ * Returns true if the player is frozen (and starts melting)
+ *
+ * @param id		Player index
+ * @return			true if melting, false otherwise. (bool)
+ */
 native is_user_frozen_cool(id)
 
-/* :: Запалва играч
+/**
+ * Ignites a player
+ *
+ * @param attacker	Attacker index
+ * @param victim	Victim index
+ * @param duration	Max burn damage (0 = uses CVAR vzbb_grenade_fire_duration)
+ *
+ * @noreturn
+ */
+native user_burn(attacker, victim, duration)
 
-#attacker - индекс на играча нападател
-#victim - индекс на играча жертва
-#duration - максимална кръв за взимане при горене (0 - стойността ще се взима от CVAR-a vzbb_grenade_fire_duration)
-*/
-
-native user_burn(attacker,victim,duration)
-
-/* :: Заледява играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Freezes a player
+ *
+ * @param id		Player index
+ *
+ * @noreturn
+ */
 native user_freeze(id)
 
-/* :: Заледява играч (играчът веднага започва да се топи)
-
-#id - индекс на играча
-*/
-
+/**
+ * Freezes a player (starts melting immediately)
+ *
+ * @param id		Player index
+ *
+ * @noreturn
+ */
 native user_freeze_cool(id)
 
-/* :: Премахва заледяването на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Unfreezes a player
+ *
+ * @param id		Player index
+ *
+ * @noreturn
+ */
 native user_unfreeze(id)
 
-/* :: Премахва топенето на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Stops melting a player
+ *
+ * @param id		Player index
+ *
+ * @noreturn
+ */
 native user_unfreeze_cool(id)
 
-/* :: Инфектира играч
+/**
+ * Infects a player
+ *
+ * @param victim	Victim index
+ * @param infector	Infector index
+ *
+ * @noreturn
+ */
+native user_infect(victim, infector)
 
-#victim - индекс на жертвата
-#infector - индекс на инфектиращия
-*/
-
-native user_infect(victim,infector)
-
-/* :: Деинфектира играч
-
-#id - индекс на играча
-*/
-
+/**
+ * De-infects a player
+ *
+ * @param id		Player index
+ *
+ * @noreturn
+ */
 native user_uninfect(id)
 
-/* :: Връща забавния тип на блок
-
-#ent - индекс на ентитито на блока
-
-::::: Фунцкията връща забавния тип на блока (int)
-*/
-
+/**
+ * Returns the fun type of a block
+ *
+ * @param ent		Block entity index
+ * @return			Fun type of block (int)
+ */
 native get_block_fun_type(ent)
 
-/* :: Задава забавен тип на блок
+/**
+ * Sets the fun type of a block
+ *
+ * @param ent		Block entity index
+ * @param funtype	Fun type (BLOCKS_YELLOW вЂ“ fast block, BLOCKS_BLACK вЂ“ immovable, BLOCKS_BLUE вЂ“ slow, BLOCKS_RED вЂ“ burning)
+ *
+ * @noreturn
+ */
+native set_block_fun_type(ent, funtype)
 
-#ent - индекс на ентитито на блока
-#funtype - забавен тип на блока
-(BLOCKS_YELLOW - бързодвижещ се блок , BLOCKS_BLACK - недвижим блок;
-BLOCKS_BLUE - забавящ блок , BLOCKS_RED - запалващ блок)
-*/
-
-native set_block_fun_type(ent,funtype)
-
-/* :: Премахва забавния тип на блок
-
-#ent - индекс на ентитито на блока
-*/
-
+/**
+ * Resets the fun type of a block
+ *
+ * @param ent		Block entity index
+ *
+ * @noreturn
+ */
 native reset_block_fun_type(ent)
 
-/* :: Връща стойността на намалението на "Round Deal" в съответния рунд
-
-::::: Фунцкията връща стойността на намалението. (int)
-*/
-
+/**
+ * Returns the current "Round Deal" discount value
+ *
+ * @return			Discount value. (int)
+ */
 native get_deal_discount()
 
-/* :: Връща съответна стойност дали итемът е в офертите на "Round Deal" в съответния рунд
-
-::::: Фунцкията връща true ако е и false - ако не е. (bool)
-*/
-
+/**
+ * Returns true if the item is part of the current "Round Deal" offers
+ *
+ * @return			true if yes, false if not. (bool)
+ */
 native is_deal_offer(itemid)
 
-/* :: Премахва бариерата (ако има такава) */
-
+/**
+ * Removes the barrier (if any)
+ *
+ * @noreturn
+ */
 native hide_barrierent()
 
-/* :: Рестартира местоположението на бариерата (ако има такава) */
-
+/**
+ * Resets the barrier position (if any)
+ *
+ * @noreturn
+ */
 native reset_barrierent()
 
-/* :: Задава текст за HUD-a на играчите, на мястото на HUD-a за режима (използвайте при update_user_hud_data forward-a)
-
-#text - текстът (максимална дължина - 128 символа, стрингът трябва да е предварително форматиран)
-*/
-
+/**
+ * Sets HUD text for players, replacing the default mode HUD (use inside update_user_hud_data forward)
+ *
+ * @param text		Text (max length 128 chars, must be preformatted)
+ */
 native set_hud_cache_text(text[])
 
-/* :: Задава цвят (в RGB формат) за HUD-a на играчите, на мястото на HUD-a за режима (използвайте при update_user_hud_data forward-a)
+/**
+ * Sets HUD color (RGB) for players, replacing the default mode HUD (use inside update_user_hud_data forward)
+ *
+ * @param r		Red
+ * @param g		Green
+ * @param b		Blue
+ *
+ * @noreturn
+ */
+native set_hud_cache_colors(r, g, b)
 
-#r - червен цвят
-#g - зелен цвят
-#b - син цвят
-*/
-
-native set_hud_cache_colors(r,g,b)
-
-/* :: Задава условие за показване на HUD-a на играчите, на мястото на HUD-a за режима (използвайте при update_user_hud_data forward-a)
-
-#condition - условие (използвайте true, за да се показва винаги при всички случаи)
-*/
-
+/**
+ * Sets condition for displaying HUD (use inside update_user_hud_data forward)
+ *
+ * @param condition		true = always display
+ *
+ * @noreturn
+ */
 native set_hud_cache_condition(bool:condition)
 
-/* :: Извиква фунцкията за показване на HUD-a на играчите */
-
+/**
+ * Forces HUD display update for all players
+ *
+ * @noreturn
+ */
 native force_user_hud_data()
 
-/* :: Извиква функцията за менюто за оръжия
-
-#id - индекс на играча
-*/
-
+/**
+ * Opens the weapon menu for a player
+ *
+ * @param id		Player index
+ *
+ * @noreturn
+ */
 native force_weapon_menu(id)
 
-/* :: Възвръща rendering-а на играча (полезно за премхване на glow и възвръщане на невидимостта на играча)
-
-#id - индекс на играча
-*/
-
+/**
+ * Restores player rendering (useful for removing glow or restoring invisibility)
+ *
+ * @param id		Player index
+ *
+ * @noreturn
+ */
 native restore_user_rendering(id)
 
-/*=======================================================================
-                           -= Forward-и =- 
-========================================================================*/
+/**
+ * Called when a zombie class is selected
+ *
+ * @param id		Player index
+ * @param classid	Zombie class index
+ */
+forward zombie_class_selected(id, classid)
 
-/* :: Извиква се при избиране на зомби клас
+/**
+ * Called when a shop item is selected
+ *
+ * @note Return FORWARD_CONTINUE to block the item purchase.
+ *
+ * @param id		Player index
+ * @param itemid	Item index
+ */
+forward shop_item_selected(id, itemid)
 
-#id - индекс на играча
-#classid - индекс на зомби класа
-*/
+/**
+ * Called when a block is pulled or pushed
+ *
+ * @note Return FORWARD_CONTINUE to stop execution.
+ *
+ * @param id			Player index
+ * @param pullpush_type	1 = pull, 2 = push
+ */
+forward block_pull_push(id, pullpush_type)
 
-forward zombie_class_selected(id,classid)
-
-/* :: Извиква се при избиране на итем от shop менюто
-
-#id - индекс на играча
-#itemid - индекс на итема
-
-:::::: Върнете стойност FORWARD_CONTINUE, за да блокирате купуването на даден итем.
-*/
-
-forward shop_item_selected(id,itemid)
-
-/* :: Извиква се при теглене или бутане на блок
-
-#id - индекс на играча
-#pullpush_type - тип на местенето на блока (1 - теглене , 2 - бутане)
-
-:::::: Върнете стойност FORWARD_CONTINUE, за да спрете изпълнението на forward-a.
-*/
-
-forward block_pull_push(id,pullpush_type)
-
-/* :: Извиква се след започването на бойната фаза */
-
+/**
+ * Called after battle phase begins
+ */
 forward battle_phase_begin()
 
-/* :: Извиква се след принудителното започване на бойната фаза от админ (с командата /start)
-
-#id - индекс на администраторът, написал командата
+/**
+ * Called after an admin forces battle phase start (/start)
+ *
+ * @param id		Admin index
  */
-
 forward battle_phase_begin_admin(id)
 
-/* :: Извиква се преди хвърляне на граната
+/**
+ * Called before throwing a grenade
+ *
+ * @note Return FORWARD_CONTINUE to stop execution.
+ *
+ * @param owner		Grenade owner index
+ * @param ent		Grenade entity index
+ * @param nade_type	1 = HE (FireNade), 2 = Smoke, 3 = Flashbang (FrostNade)
+ */
+forward nade_throw_pre(owner, ent, nade_type)
 
-#owner - индекс на притежателя на гранатата
-#ent - индекс на ентитито на гранатата
-#nade_type - тип на гранатата (1 - HE grenade (FireNade) , 2 - Smoke grenade , 3 - Flashbang (FrostNade))
+/**
+ * Called after throwing a grenade
+ *
+ * @param owner		Grenade owner index
+ * @param ent		Grenade entity index
+ * @param nade_type	1 = HE (FireNade), 2 = Smoke, 3 = Flashbang (FrostNade)
+ */
+forward nade_throw_post(owner, ent, nade_type)
 
-:::::: Върнете стойност FORWARD_CONTINUE, за да спрете изпълнението на forward-a.
-*/
-
-forward nade_throw_pre(owner,ent,nade_type)
-
-/* :: Извиква се след хвърляне на граната
-
-#owner - индекс на притежателя на гранатата
-#ent - индекс на ентитито на гранатата
-#nade_type - тип на гранатата (1 - HE grenade (FireNade) , 2 - Smoke grenade , 3 - Flashbang (FrostNade))
-*/
-
-forward nade_throw_post(owner,ent,nade_type)
-
-/* :: Извиква се преди всяко взимане на кръв при запалване на играч
-
-#id -  индекс на играча
-*/
-
+/**
+ * Called before each burn damage tick
+ *
+ * @param id		Player index
+ */
 forward user_burn_pre(id)
 
-/* :: Извиква се след всяко взимане на кръв при запалване на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Called after each burn damage tick
+ *
+ * @param id		Player index
+ */
 forward user_burn_post(id)
 
-/* :: Извиква се при премахването на горенето на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Called when burning is removed from player
+ *
+ * @param id		Player index
+ */
 forward user_remove_burn(id)
 
-/* :: Извиква се преди замразяване на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Called before freezing a player
+ *
+ * @param id		Player index
+ */
 forward user_freeze_pre(id)
 
-/* :: Извиква се след замразяване на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Called after freezing a player
+ *
+ * @param id		Player index
+ */
 forward user_freeze_post(id)
 
-/* :: Извиква се преди премахването на замразяването на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Called before unfreezing a player
+ *
+ * @param id		Player index
+ */
 forward user_unfreeze_pre(id)
 
-/* :: Извиква се след премахването на замразяването на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Called after unfreezing a player
+ *
+ * @param id		Player index
+ */
 forward user_unfreeze_post(id)
 
-/* :: Извиква се преди играч да започне да се топи
-
-#id - индекс на играча
-*/
-
+/**
+ * Called before player starts melting
+ *
+ * @param id		Player index
+ */
 forward user_freeze_cool_pre(id)
 
-/* :: Извиква се след като играч започне да се топи
-
-#id - индекс на играча
-*/
-
+/**
+ * Called after player starts melting
+ *
+ * @param id		Player index
+ */
 forward user_freeze_cool_post(id)
 
-/* :: Извиква се преди играч да спре да се топи
-
-#id - индекс на играча
-*/
-
+/**
+ * Called before player stops melting
+ *
+ * @param id		Player index
+ */
 forward user_unfreeze_cool_pre(id)
 
-/* :: Извиква се след като играч спре да се топи
-
-#id - индекс на играча
-*/
-
+/**
+ * Called after player stops melting
+ *
+ * @param id		Player index
+ */
 forward user_unfreeze_cool_post(id)
 
-/* :: Извиква се преди инфектиране на играч
+/**
+ * Called before infecting a player
+ *
+ * @note Return FORWARD_CONTINUE to stop execution.
+ *
+ * @param victim	Victim index
+ * @param infector	Infector index
+ */
+forward user_infect_pre(victim, infector)
 
-#victim - индекс на жертвата
-#infector - индекс на инфектиращия
-
-:::::: Върнете стойност FORWARD_CONTINUE, за да спрете изпълнението на forward-a.
-*/
-
-forward user_infect_pre(victim,infector)
-
-/* :: Извиква се след инфектиране на играч
-
-#victim - индекс на жертвата
-*/
-
+/**
+ * Called after infecting a player
+ *
+ * @param victim	Victim index
+ */
 forward user_infect_post(victim)
 
-/* :: Извиква се преди деинфектиране на играч
-
-#id - индекс на играча
-
-:::::: Върнете стойност FORWARD_CONTINUE, за да спрете изпълнението на forward-a.
-*/
-
+/**
+ * Called before de-infecting a player
+ *
+ * @note Return FORWARD_CONTINUE to stop execution.
+ *
+ * @param id		Player index
+ */
 forward user_uninfect_pre(id)
 
-/* :: Извиква се след деинфектиране на играч
-
-#id - индекс на играча
-*/
-
+/**
+ * Called after de-infecting a player
+ *
+ * @param id		Player index
+ */
 forward user_uninfect_post(id)
 
-/* :: Извиква се преди взимане на блок
-
-#id - индекс на играча
-
-:::::: Върнете стойност FORWARD_CONTINUE, за да спрете изпълнението на forward-a.
-*/
-
+/**
+ * Called before grabbing a block
+ *
+ * @note Return FORWARD_CONTINUE to stop execution.
+ *
+ * @param id		Player index
+ */
 forward grab_block_pre(id)
 
-/* :: Извиква се след взимане на блок
-
-#id - индекс на играча
-
-:::::: Върнете стойност FORWARD_CONTINUE, за да спрете изпълнението на forward-a.
-*/
-
+/**
+ * Called after grabbing a block
+ *
+ * @param id		Player index
+ */
 forward grab_block_post(id)
 
-/* :: Извиква се преди пускането на блок
-
-#id - индекс на играча
-*/
-
+/**
+ * Called before releasing a block
+ *
+ * @param id		Player index
+ */
 forward release_block_pre(id)
 
-/* :: Извиква се след пускането на блок
-
-#id - индекс на играча
-*/
-
+/**
+ * Called after releasing a block
+ *
+ * @param id		Player index
+ */
 forward release_block_post(id)
 
-/* :: Извиква се при всяко обновяване на HUD-а на играчите
-
-:::::: Върнете стойност FORWARD_CONTINUE, за да оставите работещ само HUD-a без другите функции на играчите в бойната фаза.
-*/
-
+/**
+ * Called on every HUD update for players
+ *
+ * @note Return FORWARD_CONTINUE to only display HUD and skip other battle-phase functions.
+ */
 forward update_user_hud_data()
 
-/* :: Извиква се преди докосване на играч със забавен блок
+/**
+ * Called before touching a fun block
+ *
+ * @note Return FORWARD_CONTINUE to block fun effect.
+ *
+ * @param id		Player index
+ * @param ent		Block entity index
+ * @param funtype	Block fun type (BLOCKS_YELLOW вЂ“ fast, BLOCKS_BLACK вЂ“ immovable, BLOCKS_BLUE вЂ“ slow, BLOCKS_RED вЂ“ burning)
+ */
+forward fun_block_touch_pre(id, ent, funtype)
 
-#id - индекс на играча
-#ent - индекс на ентитито на блока
-#funtype - забавен тип на блока
-(BLOCKS_YELLOW - бързодвижещ се блок , BLOCKS_BLACK - недвижим блок;
-BLOCKS_BLUE - забавящ блок , BLOCKS_RED - запалващ блок)
-
-:::: Върнете стойност FORWARD_CONTINUE, за да блокирате ефекта на забавния блок.
-*/
-
-forward fun_block_touch_pre(id,ent,funtype)
-
-/* :: Извиква се след докосване на играч със забавен блок
-
-#id - индекс на играча
-#ent - индекс на ентитито на блока
-#funtype - забавен тип на блока
-(BLOCKS_YELLOW - бързодвижещ се блок , BLOCKS_BLACK - недвижим блок;
-BLOCKS_BLUE - забавящ блок , BLOCKS_RED - запалващ блок)
-*/
-
-forward fun_block_touch_post(id,ent,funtype)
-/* AMXX-Studio Notes - DO NOT MODIFY BELOW HERE
-*{\\ rtf1\\ ansi\\ deff0{\\ fonttbl{\\ f0\\ fnil Tahoma;}}\n\\ viewkind4\\ uc1\\ pard\\ lang1026\\ f0\\ fs16 \n\\ par }
-*/
+/**
+ * Called after touching a fun block
+ *
+ * @param id		Player index
+ * @param ent		Block entity index
+ * @param funtype	Block fun type (BLOCKS_YELLOW вЂ“ fast, BLOCKS_BLACK вЂ“ immovable, BLOCKS_BLUE вЂ“ slow, BLOCKS_RED вЂ“ burning)
+ */
+forward fun_block_touch_post(id, ent, funtype)
